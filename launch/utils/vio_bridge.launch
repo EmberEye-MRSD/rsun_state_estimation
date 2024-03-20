@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<launch>
+   <node pkg="rsun_state_estimation" type="mavros_vio_bridge.py" name="mavros_vio_bridge">
+      <!-- Input from MSO -->
+      <remap from="/mso_estimator/odometry" to="/mso_estimator/odometry"/>
+      <!-- Output to MAVROS -->
+      <remap from="/mavros/vision_pose/pose" to="/mavros/vision_pose/pose"/>
+   </node>
+
+   <node pkg="tf" type="static_transform_publisher" name="mso_odom_tf" args="0.0 0.0 0.0 3.14159 0 0 odom cmu_rc7_sensor_init 100" />
+</launch>
