@@ -1,8 +1,8 @@
 <launch>
-   <arg name="odom_input" default="true"/>
+   <arg name="odom_input" default="false"/>
 
    <!-- Topic remapping arguments -->
-   <arg name="gt_input_topic" default="/mocap/pose"/>
+   <arg name="gt_input_topic" default="/mavros/vision_pose/pose"/>
    <arg name="robot_pose_topic" default="/mavros/local_position/pose"/>
    <arg name="gt_viz_topic" default="groundtruth_pose_hist"/>
    <arg name="robot_viz_topic" default="robot_pose_hist"/>
