@@ -56,6 +56,9 @@ class MavrosVIOBridge:
         
         self.set_mode_srv = rospy.ServiceProxy('/mavros/set_mode', SetMode)
 
+        self.fs_timer = rospy.Timer(rospy.Duration(0.01), self.failsafe_cb)
+
+
 
     def odom_cb(self, msg):
         pose_msg = PoseStamped()
