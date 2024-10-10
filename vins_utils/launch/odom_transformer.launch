@@ -1,0 +1,7 @@
+<launch>
+    <rosparam file="$(find vins_utils)/config/static_transform.yaml" command="load" />
+  
+    <node name="odom_transformer_node" pkg="vins_utils" type="odom_transformer_node" output="screen">
+    </node> 
+</launch>
+  
