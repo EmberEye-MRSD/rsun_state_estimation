@@ -177,7 +177,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     
     if(MULTIPLE_THREAD)  
     {     
-        if(inputImageCnt % 2 == 0)
+        if(inputImageCnt % 1 == 0)
         {
             mBuf.lock();
             featureBuf.push(make_pair(t, featureFrame));
@@ -321,7 +321,7 @@ void Estimator::processMeasurements()
             printStatistics(*this, 0);
 
             std_msgs::Header header;
-            header.frame_id = "map";
+            header.frame_id = "vins_odom";
             header.stamp = ros::Time(feature.first);
 
             pubOdometry(*this, header);

@@ -56,7 +56,7 @@ void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, co
 {
     nav_msgs::Odometry odometry;
     odometry.header.stamp = ros::Time(t);
-    odometry.header.frame_id = "map";
+    odometry.header.frame_id = "vins_odom";
     odometry.pose.pose.position.x = P.x();
     odometry.pose.pose.position.y = P.y();
     odometry.pose.pose.position.z = P.z();
@@ -73,7 +73,7 @@ void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, co
 void pubTrackImage(const cv::Mat &imgTrack, const double t)
 {
     std_msgs::Header header;
-    header.frame_id = "map";
+    header.frame_id = "vins_odom";
     header.stamp = ros::Time(t);
     sensor_msgs::ImagePtr imgTrackMsg = cv_bridge::CvImage(header, "bgr8", imgTrack).toImageMsg();
     pub_image_track.publish(imgTrackMsg);
@@ -129,8 +129,8 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
     {
         nav_msgs::Odometry odometry;
         odometry.header = header;
-        odometry.header.frame_id = "map";
-        odometry.child_frame_id = "map";
+        odometry.header.frame_id = "vins_odom";
+        odometry.child_frame_id = "vins_odom";
         Quaterniond tmp_Q;
         tmp_Q = Quaterniond(estimator.Rs[WINDOW_SIZE]);
         odometry.pose.pose.position.x = estimator.Ps[WINDOW_SIZE].x();
@@ -147,10 +147,10 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
 
         geometry_msgs::PoseStamped pose_stamped;
         pose_stamped.header = header;
-        pose_stamped.header.frame_id = "map";
+        pose_stamped.header.frame_id = "vins_odom";
         pose_stamped.pose = odometry.pose.pose;
         path.header = header;
-        path.header.frame_id = "map";
+        path.header.frame_id = "vins_odom";
         path.poses.push_back(pose_stamped);
         pub_odometry_mavros.publish(pose_stamped); //added
         pub_path.publish(path);
@@ -186,7 +186,7 @@ void pubKeyPoses(const Estimator &estimator, const std_msgs::Header &header)
         return;
     visualization_msgs::Marker key_poses;
     key_poses.header = header;
-    key_poses.header.frame_id = "map";
+    key_poses.header.frame_id = "vins_odom";
     key_poses.ns = "key_poses";
     key_poses.type = visualization_msgs::Marker::SPHERE_LIST;
     key_poses.action = visualization_msgs::Marker::ADD;
@@ -226,7 +226,7 @@ void pubCameraPose(const Estimator &estimator, const std_msgs::Header &header)
 
         nav_msgs::Odometry odometry;
         odometry.header = header;
-        odometry.header.frame_id = "map";
+        odometry.header.frame_id = "vins_odom";
         odometry.pose.pose.position.x = P.x();
         odometry.pose.pose.position.y = P.y();
         odometry.pose.pose.position.z = P.z();
@@ -332,7 +332,7 @@ void pubTF(const Estimator &estimator, const std_msgs::Header &header)
     q.setY(correct_q.y());
     q.setZ(correct_q.z());
     transform.setRotation(q);
-    br.sendTransform(tf::StampedTransform(transform, header.stamp, "map", "body"));
+    br.sendTransform(tf::StampedTransform(transform, header.stamp, "vins_odom", "body"));
 
     // camera frame
     transform.setOrigin(tf::Vector3(estimator.tic[0].x(),
@@ -348,7 +348,7 @@ void pubTF(const Estimator &estimator, const std_msgs::Header &header)
     
     nav_msgs::Odometry odometry;
     odometry.header = header;
-    odometry.header.frame_id = "map";
+    odometry.header.frame_id = "vins_odom";
     odometry.pose.pose.position.x = estimator.tic[0].x();
     odometry.pose.pose.position.y = estimator.tic[0].y();
     odometry.pose.pose.position.z = estimator.tic[0].z();
@@ -373,7 +373,7 @@ void pubKeyframe(const Estimator &estimator)
 
         nav_msgs::Odometry odometry;
         odometry.header.stamp = ros::Time(estimator.Headers[WINDOW_SIZE - 2]);
-        odometry.header.frame_id = "map";
+        odometry.header.frame_id = "vins_odom";
         odometry.pose.pose.position.x = P.x();
         odometry.pose.pose.position.y = P.y();
         odometry.pose.pose.position.z = P.z();
@@ -388,7 +388,7 @@ void pubKeyframe(const Estimator &estimator)
 
         sensor_msgs::PointCloud point_cloud;
         point_cloud.header.stamp = ros::Time(estimator.Headers[WINDOW_SIZE - 2]);
-        point_cloud.header.frame_id = "map";
+        point_cloud.header.frame_id = "vins_odom";
         for (auto &it_per_id : estimator.f_manager.feature)
         {
             int frame_size = it_per_id.feature_per_frame.size();
