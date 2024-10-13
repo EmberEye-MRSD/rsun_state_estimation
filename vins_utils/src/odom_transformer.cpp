@@ -30,6 +30,12 @@ public:
 
         // Broadcast a static transform
         broadcastStaticTransform();
+
+        // Get Rotation Quaternion
+        getRotationQuaternion();
+
+        // Get Rotation Matrix
+        getRotationMatix();
     }
     
 private:
@@ -40,6 +46,32 @@ private:
 
     std::string parent_frame_, child_frame_;
     double x_, y_, z_, roll_, pitch_, yaw_;
+
+    // To get rotation quaternion
+    Eigen::Quaterniond rot_quaternion;
+
+    // Rotation matrix for transforming into base-frame
+    Eigen::Matrix3d rot_matix;
+
+    void getRotationMatix()
+    {
+        // Rotate into base-frame coordinate system 
+        rot_matix = Eigen::AngleAxisd(yaw_  , Eigen::Vector3d::UnitZ()) *
+                          Eigen::AngleAxisd(pitch_, Eigen::Vector3d::UnitY()) *
+                          Eigen::AngleAxisd(roll_ , Eigen::Vector3d::UnitX());
+    }
+
+
+    void getRotationQuaternion()
+    {
+        // Get rotation quaternions
+        Eigen::Quaterniond yaw_quat(Eigen::AngleAxisd(yaw_, Eigen::Vector3d::UnitZ()));
+        Eigen::Quaterniond pitch_quat(Eigen::AngleAxisd(pitch_, Eigen::Vector3d::UnitY()));
+        Eigen::Quaterniond roll_quat(Eigen::AngleAxisd(roll_, Eigen::Vector3d::UnitX()));
+
+        rot_quaternion = yaw_quat * pitch_quat * roll_quat;
+    }
+
 
     void broadcastStaticTransform()
     {
@@ -74,43 +106,34 @@ private:
             nav_msgs::Odometry transformed_odom = *msg;
             transformed_odom.header.frame_id = parent_frame_;  // Set the new frame ID
 
-            // Apply translation to the original position
-            transformed_odom.pose.pose.position.x += x_;
-            transformed_odom.pose.pose.position.y += y_;
-            transformed_odom.pose.pose.position.z += z_;
+            // Rotate
+            Eigen::Vector3d pose_eig_(transformed_odom.pose.pose.position.x, 
+                                      transformed_odom.pose.pose.position.y, 
+                                      transformed_odom.pose.pose.position.z);
+            Eigen::Vector3d pose_transformed_ = rot_matix * pose_eig_;
 
-            // Create a tf2::Vector3 for the translated position
-            tf2::Vector3 translated_position(
-                transformed_odom.pose.pose.position.x,
-                transformed_odom.pose.pose.position.y,
-                transformed_odom.pose.pose.position.z);
-            
-            // Create a rotation matrix from Euler angles
-            Eigen::Matrix3d rotation_matrix;
+            // Translate 
+            transformed_odom.pose.pose.position.x = pose_transformed_.x() + x_;
+            transformed_odom.pose.pose.position.y = pose_transformed_.y() + y_;
+            transformed_odom.pose.pose.position.z = pose_transformed_.z() + z_;
 
-            // Set the rotation matrix using roll, pitch, yaw
-            rotation_matrix = Eigen::AngleAxisd(yaw_, Eigen::Vector3d::UnitZ()) *
-                              Eigen::AngleAxisd(pitch_, Eigen::Vector3d::UnitY()) *
-                              Eigen::AngleAxisd(roll_, Eigen::Vector3d::UnitX());
 
-            // Rotate the position
-            Eigen::Vector3d new_position(translated_position.x(), translated_position.y(), translated_position.z());
-            Eigen::Vector3d rotated_position = rotation_matrix * new_position;
+            // Current rotation 
+            double qx = transformed_odom.pose.pose.orientation.x;
+            double qy = transformed_odom.pose.pose.orientation.y;
+            double qz = transformed_odom.pose.pose.orientation.z;
+            double qw = transformed_odom.pose.pose.orientation.w;
+            Eigen::Quaterniond current_quat(qw, qx, qy, qz);
 
-            // Set the new position after rotation
-            transformed_odom.pose.pose.position.x = rotated_position.x();
-            transformed_odom.pose.pose.position.y = rotated_position.y();
-            transformed_odom.pose.pose.position.z = rotated_position.z();
+            // Updated Rotation
+            Eigen::Quaterniond rot_transformed_ = rot_quaternion * current_quat;
+            rot_transformed_.normalize();
 
-            // Create a quaternion for the combined orientation
-            tf2::Quaternion q_combined;
-            q_combined.setRPY(roll_, pitch_, yaw_);  // Set the combined orientation
+            transformed_odom.pose.pose.orientation.x = rot_transformed_.x();
+            transformed_odom.pose.pose.orientation.y = rot_transformed_.y();
+            transformed_odom.pose.pose.orientation.z = rot_transformed_.z();
+            transformed_odom.pose.pose.orientation.w = rot_transformed_.w();
 
-            // Normalize the combined quaternion
-            q_combined.normalize();
-
-            // Set the transformed orientation
-            transformed_odom.pose.pose.orientation = tf2::toMsg(q_combined);  // Convert back to geometry_msgs::Quaternion
 
             // Publish the transformed odometry data
             odom_pub_.publish(transformed_odom);
