@@ -57,8 +57,8 @@ private:
     {
         // Rotate into base-frame coordinate system 
         rot_matix = Eigen::AngleAxisd(yaw_  , Eigen::Vector3d::UnitZ()) *
-                          Eigen::AngleAxisd(pitch_, Eigen::Vector3d::UnitY()) *
-                          Eigen::AngleAxisd(roll_ , Eigen::Vector3d::UnitX());
+                    Eigen::AngleAxisd(pitch_, Eigen::Vector3d::UnitY()) *
+                    Eigen::AngleAxisd(roll_ , Eigen::Vector3d::UnitX());
     }
 
 
@@ -123,12 +123,31 @@ private:
             double qy = transformed_odom.pose.pose.orientation.y;
             double qz = transformed_odom.pose.pose.orientation.z;
             double qw = transformed_odom.pose.pose.orientation.w;
+
             Eigen::Quaterniond current_quat(qw, qx, qy, qz);
 
-            // Updated Rotation
-            Eigen::Quaterniond rot_transformed_ = rot_quaternion * current_quat;
-            rot_transformed_.normalize();
+            Eigen::Matrix3d initial_mat, frame_transform;
 
+            // quat_matrix << 0,  0, 1,
+            //               -1,  0, 0, 
+            //                0, -1, 0;
+
+            // Correct one
+            initial_mat << 1,  0,  0,
+                           0,  0, 1, 
+                           0,  -1,  0;
+            
+            frame_transform <<  0,  -1,  0,
+                                0,  0,  -1, 
+                                1,  0,  0;
+
+            // auto final_rot = frame_transform.transpose() * (initial_mat.transpose() * current_quat.toRotationMatrix());
+            std::cout << "Before: " << std::endl << initial_mat.transpose() * current_quat.toRotationMatrix() << std::endl;
+            auto final_rot = frame_transform.transpose() * (initial_mat.transpose() * current_quat.toRotationMatrix());
+            std::cout << "After: " << std::endl << final_rot << std::endl;
+            Eigen::Quaterniond rot_transformed_(final_rot);
+
+            
             transformed_odom.pose.pose.orientation.x = rot_transformed_.x();
             transformed_odom.pose.pose.orientation.y = rot_transformed_.y();
             transformed_odom.pose.pose.orientation.z = rot_transformed_.z();
