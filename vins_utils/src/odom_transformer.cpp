@@ -125,26 +125,20 @@ private:
             double qw = transformed_odom.pose.pose.orientation.w;
 
             Eigen::Quaterniond current_quat(qw, qx, qy, qz);
-
-            Eigen::Matrix3d initial_mat, frame_transform;
-
-            // quat_matrix << 0,  0, 1,
-            //               -1,  0, 0, 
-            //                0, -1, 0;
-
-            // Correct one
-            initial_mat << 1,  0,  0,
-                           0,  0, 1, 
-                           0,  -1,  0;
             
-            frame_transform <<  0,  -1,  0,
-                                0,  0,  -1, 
-                                1,  0,  0;
+            auto final_rot_eul = current_quat.toRotationMatrix();
+            double roll = atan2(final_rot_eul(2, 1), final_rot_eul(2, 2));  // rotation around x-axis
+            double pitch = -asin(final_rot_eul(2, 0));                          // rotation around y-axis
+            double yaw = atan2(final_rot_eul(1, 0), final_rot_eul(0, 0));
 
-            // auto final_rot = frame_transform.transpose() * (initial_mat.transpose() * current_quat.toRotationMatrix());
-            std::cout << "Before: " << std::endl << initial_mat.transpose() * current_quat.toRotationMatrix() << std::endl;
-            auto final_rot = frame_transform.transpose() * (initial_mat.transpose() * current_quat.toRotationMatrix());
-            std::cout << "After: " << std::endl << final_rot << std::endl;
+            double roll_new = pitch;
+            double pitch_new = -(roll + M_PI/2);
+            double yaw_new = yaw;
+
+            auto final_rot = Eigen::AngleAxisd(yaw_new  , Eigen::Vector3d::UnitZ()) *
+                            Eigen::AngleAxisd(pitch_new, Eigen::Vector3d::UnitY()) *
+                            Eigen::AngleAxisd(roll_new , Eigen::Vector3d::UnitX());
+
             Eigen::Quaterniond rot_transformed_(final_rot);
 
             
