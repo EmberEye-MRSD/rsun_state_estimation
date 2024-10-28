@@ -5,6 +5,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <Eigen/Dense>
+#include <geometry_msgs/PoseStamped.h> 
 
 class OdomTransformer
 {
@@ -27,7 +28,9 @@ public:
 
         // Publisher for transformed odometry data
         odom_pub_ = nh.advertise<nav_msgs::Odometry>("/rsun/odometry", 10);
-
+        // Publisher for pose-transformed
+        pose_pub_ =  nh.advertise<nav_msgs::Odometry>("/rsun/pose", 10);
+        
         // Broadcast a static transform
         broadcastStaticTransform();
 
@@ -40,7 +43,8 @@ public:
     
 private:
     ros::Subscriber odom_sub_;
-    ros::Publisher odom_pub_;
+    ros::Publisher odom_pub_, pose_pub_;
+    
     tf2_ros::StaticTransformBroadcaster static_broadcaster_;
     tf2_ros::TransformBroadcaster dynamic_broadcaster_;
 
@@ -147,6 +151,13 @@ private:
             transformed_odom.pose.pose.orientation.z = rot_transformed_.z();
             transformed_odom.pose.pose.orientation.w = rot_transformed_.w();
 
+            // Publisher for pose-stamped
+            geometry_msgs::PoseStamped msg_pose;
+            msg_pose.header = transformed_odom.header;
+            msg_pose.pose = transformed_odom.pose.pose;
+
+            // Publish pose-transformed 
+            pose_pub_.publish(msg_pose);
 
             // Publish the transformed odometry data
             odom_pub_.publish(transformed_odom);
