@@ -152,7 +152,7 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         path.header = header;
         path.header.frame_id = "vins_odom";
         path.poses.push_back(pose_stamped);
-        pub_odometry_mavros.publish(pose_stamped); //added
+        // pub_odometry_mavros.publish(pose_stamped); //added
         pub_path.publish(path);
 
         // write result to file

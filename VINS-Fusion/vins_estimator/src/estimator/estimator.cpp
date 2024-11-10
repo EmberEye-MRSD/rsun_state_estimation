@@ -322,6 +322,7 @@ void Estimator::processMeasurements()
 
             std_msgs::Header header;
             header.frame_id = "vins_odom";
+            // header.stamp = ros::Time::now();
             header.stamp = ros::Time(feature.first);
 
             pubOdometry(*this, header);
