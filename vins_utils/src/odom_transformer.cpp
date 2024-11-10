@@ -6,6 +6,9 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <Eigen/Dense>
 #include <geometry_msgs/PoseStamped.h> 
+#include <ros/console.h>
+
+// if(ros::console::set_logger_level(ROSCONSOLE_DEFAULT))
 
 class OdomTransformer
 {
@@ -24,12 +27,12 @@ public:
         nh.param<double>("yaw", yaw_, 0.0);
 
         // Subscribe to the odometry topic
-        odom_sub_ = nh.subscribe("/vins_estimator/odometry", 10, &OdomTransformer::odomCallback, this);
+        odom_sub_ = nh.subscribe("/vins_estimator/odometry", 1, &OdomTransformer::odomCallback, this);
 
         // Publisher for transformed odometry data
-        odom_pub_ = nh.advertise<nav_msgs::Odometry>("/rsun/odometry", 10);
+        odom_pub_ = nh.advertise<nav_msgs::Odometry>("/rsun/odometry", 1);
         // Publisher for pose-transformed
-        pose_pub_ =  nh.advertise<nav_msgs::Odometry>("/rsun/pose", 10);
+        pose_pub_ =  nh.advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 1);
         
         // Broadcast a static transform
         broadcastStaticTransform();
@@ -41,13 +44,26 @@ public:
         getRotationMatix();
 
         // Broadcast static tf (base_link->camera_base_link)
-        broadcastStaticTransform_baseTocamera();
+        // broadcastStaticTransform_baseTocamera();
 
         // Broadcast static tf (camera_base_link->left_infra1_frame)
-        broadcastStaticTransform_cameraToinfra1();
+        
+        // broadcastStaticTransform_cameraToinfra1();
 
-        // Broadcast static tf (imu_flu->cam_imu_optical frame)
-        broadcastStaticTransform_imufluToimuoptical();
+        // Broadcast static tf (cam_imu_optical frame->imu_flu)
+        // broadcastStaticTransform_imufluToimuoptical();
+
+        broadcastStaticTransform_imufluTobaselink();
+
+        broadcastStaticTransform_imufluTocamera();
+
+        initialisePoseStamped();
+
+        nh.param<double>("mavros_rate", m_dTimerR_, 30.0);
+        ROS_INFO("Mavros Pose-Stamped Rate :%f", m_dTimerR_);
+        
+        // Timer for publishing at 30 Hz
+        timer_ = nh.createTimer(ros::Duration(1.0 / m_dTimerR_), &OdomTransformer::publishTransformedData, this);
         
     }
     
@@ -61,11 +77,34 @@ private:
     std::string parent_frame_, child_frame_;
     double x_, y_, z_, roll_, pitch_, yaw_;
 
+    ros::Timer timer_;
+    double m_dTimerR_;
+
     // To get rotation quaternion
     Eigen::Quaterniond rot_quaternion;
 
     // Rotation matrix for transforming into base-frame
     Eigen::Matrix3d rot_matix;
+
+
+    // Pose-Stamped ros-msg
+    geometry_msgs::PoseStamped m_sPStamp;
+
+    void initialisePoseStamped(){
+        // Initializing w/t zeros
+        m_sPStamp.pose.position.x = 0;
+        m_sPStamp.pose.position.y = 0;
+        m_sPStamp.pose.position.z = 0;
+        m_sPStamp.pose.orientation.x = 0;
+        m_sPStamp.pose.orientation.y = 0;
+        m_sPStamp.pose.orientation.z = 0;
+        m_sPStamp.pose.orientation.w = 1;
+        m_sPStamp.header.frame_id = parent_frame_;  // Set the new frame ID
+        m_sPStamp.header.stamp = ros::Time::now();
+    }
+
+    
+
 
     void getRotationMatix()
     {
@@ -140,13 +179,66 @@ private:
     }
 
 
+    void broadcastStaticTransform_imufluTobaselink()
+    {
+        geometry_msgs::TransformStamped static_transform;
+
+        static_transform.header.stamp = ros::Time::now();
+        static_transform.header.frame_id = "imu_flu";
+        static_transform.child_frame_id = "base_link";
+        
+
+        // Set the static transform (translation)
+        static_transform.transform.translation.x = -0.135;
+        static_transform.transform.translation.y = -0.018;
+        static_transform.transform.translation.z = 0.056;
+
+
+        static_transform.transform.rotation.x = 0.0;
+        static_transform.transform.rotation.y = 0.0;
+        static_transform.transform.rotation.z = 0.0;
+        static_transform.transform.rotation.w = 1.0;
+
+
+        // Broadcast the static transform
+        static_broadcaster_.sendTransform(static_transform);
+
+    }
+
+    void broadcastStaticTransform_imufluTocamera()
+    {
+        geometry_msgs::TransformStamped static_transform;
+
+        static_transform.header.stamp = ros::Time::now();
+        static_transform.header.frame_id = "imu_flu";
+        static_transform.child_frame_id = "camera_link";
+        
+
+        // Set the static transform (translation)
+        static_transform.transform.translation.x = 0.016;
+        static_transform.transform.translation.y = 0.03;
+        static_transform.transform.translation.z = -0.007;
+
+
+        static_transform.transform.rotation.x = 0.0;
+        static_transform.transform.rotation.y = 0.0;
+        static_transform.transform.rotation.z = 0.0;
+        static_transform.transform.rotation.w = 1.0;
+
+
+        // Broadcast the static transform
+        static_broadcaster_.sendTransform(static_transform);
+
+    }
+
+
     void broadcastStaticTransform_cameraToinfra1()
     {
         geometry_msgs::TransformStamped static_transform;
 
         static_transform.header.stamp = ros::Time::now();
         static_transform.header.frame_id = "camera_base_link";
-        static_transform.child_frame_id = "camera_infra1_frame";
+        static_transform.child_frame_id = "camera_link";
         
 
         // Set the static transform (translation)
@@ -171,8 +263,8 @@ private:
         geometry_msgs::TransformStamped static_transform;
 
         static_transform.header.stamp = ros::Time::now();
-        static_transform.header.frame_id = "imu_flu";
-        static_transform.child_frame_id = "camera_imu_optical_frame";
+        static_transform.header.frame_id = "camera_imu_optical_frame";
+        static_transform.child_frame_id = "imu_flu";
         
 
         // Set the static transform (translation)
@@ -182,7 +274,7 @@ private:
 
         // Relative rotations (roll->pitch->yaw)
         tf2::Quaternion quat;
-        quat.setRPY(roll_, 1.57, -1.57);
+        quat.setRPY(1.57, -1.57, 0.0);
         static_transform.transform.rotation.x = quat.x();
         static_transform.transform.rotation.y = quat.y();
         static_transform.transform.rotation.z = quat.z();
@@ -243,14 +335,9 @@ private:
             transformed_odom.pose.pose.orientation.z = rot_transformed_.z();
             transformed_odom.pose.pose.orientation.w = rot_transformed_.w();
 
-            // Publisher for pose-stamped
-            geometry_msgs::PoseStamped msg_pose;
-            msg_pose.header = transformed_odom.header;
-            msg_pose.pose = transformed_odom.pose.pose;
-
-            // Publish pose-transformed 
-            pose_pub_.publish(msg_pose);
-
+            
+            m_sPStamp.pose = transformed_odom.pose.pose;
+            
             // Publish the transformed odometry data
             odom_pub_.publish(transformed_odom);
 
@@ -258,7 +345,7 @@ private:
             // Publish transform
             geometry_msgs::TransformStamped dynamic_transform;
             dynamic_transform.header.stamp = ros::Time::now();
-            dynamic_transform.header.frame_id = "base_link";
+            dynamic_transform.header.frame_id = "map";
             dynamic_transform.child_frame_id = "imu_flu";
 
             // Set translation from transformed odometry
@@ -279,6 +366,25 @@ private:
         {
             ROS_WARN("%s", ex.what());
         }
+    }
+
+    void publishTransformedData(const ros::TimerEvent&)
+    {
+        // Publish pose-stamped    
+        m_sPStamp.header.stamp = ros::Time::now();
+        pose_pub_.publish(m_sPStamp);
+
+        // Logging 
+        ROS_INFO("Pose-Stamped Position->x: %f, y: %f, z: %f | Orientation->x: %f, y: %f, z: %f, w: %f",
+        m_sPStamp.pose.position.x, 
+        m_sPStamp.pose.position.y, 
+        m_sPStamp.pose.position.z,
+        m_sPStamp.pose.orientation.x, 
+        m_sPStamp.pose.orientation.y, 
+        m_sPStamp.pose.orientation.z, 
+        m_sPStamp.pose.orientation.w
+        );
+        
     }
     
 };
